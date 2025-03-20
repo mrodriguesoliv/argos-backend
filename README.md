@@ -13,8 +13,8 @@
 - **pnpm**: Gerenciador de pacotes para instalar as dependências.
 
 ## Clone o repositório para seu ambiente local:
-- git clone https://github.com/SEU_USUARIO/my-app.git
-- cd my-app
+- git clone https://github.com/mrodriguesoliv/argos-backend.git
+- cd argos-backend
 
 ## Instale as dependências:
 - pnpm install
