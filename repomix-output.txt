@@ -1,0 +1,629 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+================================================================
+File Summary
+================================================================
+
+Purpose:
+--------
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+
+File Format:
+------------
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Multiple file entries, each consisting of:
+  a. A separator line (================)
+  b. The file path (File: path/to/file)
+  c. Another separator line
+  d. The full contents of the file
+  e. A blank line
+
+Usage Guidelines:
+-----------------
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+
+Notes:
+------
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+
+Additional Info:
+----------------
+
+================================================================
+Directory Structure
+================================================================
+src/
+  queries/
+    assistants.ts
+    db.ts
+    files.ts
+    organizations.ts
+    users.ts
+  routes/
+    assistants.ts
+    files.ts
+    organizations.ts
+    users.ts
+  schemas/
+    assistants.ts
+    files.ts
+    organizations.ts
+    users.ts
+  index.ts
+.gitignore
+package.json
+README.md
+tsconfig.json
+wrangler.jsonc
+
+================================================================
+Files
+================================================================
+
+================
+File: src/queries/assistants.ts
+================
+import { db } from '@/queries/db';
+import { assistants } from '@/schemas/assistants';
+import { sql } from 'drizzle-orm';
+
+export const getAssistants = async (page: number, limit: number) => {
+  try {
+    const offset = (page - 1) * limit;
+
+    const result = await db.select().from(assistants).offset(offset).limit(limit);
+
+    const totalAssistants = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(assistants);
+
+    return {
+      files: result,
+      totalPages: Math.ceil(totalAssistants[0].count / limit),
+      totalItems: totalAssistants[0].count,
+      currentPage: page
+    };
+  } catch (error) {
+    console.error('Erro ao acessar o banco de dados', error);
+    throw new Error('Erro ao buscar os assistentes');
+  }
+};
+
+================
+File: src/queries/db.ts
+================
+import { drizzle } from 'drizzle-orm/node-postgres';
+import pg from 'pg';
+import * as dotenv from 'dotenv';
+
+dotenv.config();
+
+const { Pool } = pg;
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+
+export const db = drizzle(pool);
+
+================
+File: src/queries/files.ts
+================
+import { db } from '@/queries/db';
+import { files } from '@/schemas/files';
+import { sql } from 'drizzle-orm';
+
+export const getFiles = async (page: number, limit: number) => {
+  try {
+    const offset = (page - 1) * limit;
+
+    const result = await db.select().from(files).offset(offset).limit(limit);
+
+    const totalFiles = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(files);
+
+    return {
+      files: result,
+      totalPages: Math.ceil(totalFiles[0].count / limit),
+      totalItems: totalFiles[0].count,
+      currentPage: page
+    };
+  } catch (error) {
+    console.error('Erro ao acessar o banco de dados', error);
+    throw new Error('Erro ao buscar os arquivos');
+  }
+};
+
+================
+File: src/queries/organizations.ts
+================
+import { db } from '@/queries/db';
+import { organizations } from '@/schemas/organizations';
+import { sql } from 'drizzle-orm';
+
+
+export const getOrganizations = async (page: number, limit: number) => {
+  try {
+    const offset = (page - 1) * limit;
+    const result = await db.select().from(organizations).offset(offset).limit(limit);
+
+    const totalOrganizations = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(organizations);
+
+    return {
+      files: result,
+      totalPages: Math.ceil(totalOrganizations[0].count / limit),
+      totalItems: totalOrganizations[0].count,
+      currentPage: page
+    };
+  } catch (error) {
+    console.error('Erro ao acessar o banco de dados', error);
+    throw new Error('Erro ao buscar os arquivos');
+  }
+};
+
+export const updateOrganization = async (externalId: string, updateData: any) => {
+  try {
+    console.log("Tentando atualizar organização com external_id:", externalId);
+    console.log("Dados de atualização:", updateData);
+
+    const result = await db
+      .update(organizations)
+      .set(updateData)
+      .where(sql`${organizations.external_id} = ${externalId}`)
+      .returning();
+
+    if (result.length === 0) {
+      throw new Error('Organização não encontrada');
+    }
+
+    console.log("Organização atualizada com sucesso:", result[0]);
+    return result[0];
+  } catch (error) {
+    console.error('Erro ao atualizar a organização:', error);
+    throw new Error('Erro ao atualizar a organização');
+  }
+};
+
+================
+File: src/queries/users.ts
+================
+import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
+
+dotenv.config(); // Carregar variáveis de ambiente
+
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_ANON_KEY!
+);
+
+export const getUsers = async () => {
+  try {
+    // Listar os usuários usando a função admin do Supabase
+    const { data, error } = await supabase.auth.admin.listUsers();
+
+    if (error) {
+      console.error('Erro ao acessar os usuários:', error);
+      throw new Error('Erro ao buscar os usuários');
+    }
+
+    // Agora acessando a propriedade "users" dentro de "data"
+    return data.users; // data.users é um array com os usuários
+  } catch (error) {
+    console.error('Erro ao acessar o banco de dados', error);
+    throw new Error('Erro ao buscar os arquivos');
+  }
+};
+
+================
+File: src/routes/assistants.ts
+================
+import { Hono } from 'hono';
+import { getAssistants } from '../queries/assistants';
+
+const assistantsRoutes = new Hono();
+
+assistantsRoutes.get('/api/assistants', async (c) => {
+  const page = parseInt(c.req.query('page') || '1', 10);
+  const limit = parseInt(c.req.query('limit') || '10', 10);
+
+  const assistantsData = await getAssistants(page, limit);
+  return c.json(assistantsData);
+});
+
+export default assistantsRoutes;
+
+================
+File: src/routes/files.ts
+================
+import { Hono } from 'hono';
+import { getFiles } from '../queries/files';
+
+const filesRoutes = new Hono();
+
+filesRoutes.get('/api/files', async (c) => {
+  const page = parseInt(c.req.query('page') || '1', 10);
+  const limit = parseInt(c.req.query('limit') || '10', 10);
+
+  const filesData = await getFiles(page, limit);
+  return c.json(filesData);
+});
+
+export default filesRoutes;
+
+================
+File: src/routes/organizations.ts
+================
+import { Hono } from 'hono';
+import { getOrganizations } from '../queries/organizations';
+import { organizations } from "@/schemas/organizations";
+import { db } from "@/queries/db";
+import { sql } from 'drizzle-orm';
+
+const organizationsRoutes = new Hono();
+
+organizationsRoutes.get('/api/organizations', async (c) => {
+  const page = parseInt(c.req.query('page') || '1', 10);
+  const limit = parseInt(c.req.query('limit') || '10', 10);
+
+  const organizationsData = await getOrganizations(page, limit);
+  return c.json(organizationsData);
+});
+
+organizationsRoutes.patch("/api/organizations/update/:external_id", async (c) => {
+  try {
+    const externalId = c.req.param("external_id");
+    const updatedFields = await c.req.json();
+
+    const { created_at, updated_at, dueDate, ...fieldsToUpdate } = updatedFields;
+
+    if (Object.keys(fieldsToUpdate).length === 0) {
+      return c.json({ success: false, message: "Nenhum dado enviado para atualização" }, 400);
+    }
+
+    const existingOrg = await db
+      .select()
+      .from(organizations)
+      .where(sql`${organizations.external_id} = ${externalId}`)
+      .first();
+
+    if (!existingOrg) {
+      return c.json({ success: false, message: "Organização não encontrada" }, 404);
+    }
+
+    await db.update(organizations)
+      .set(fieldsToUpdate)
+      .where(sql`${organizations.external_id} = ${externalId}`);
+
+    return c.json({ success: true, message: "Organização atualizada com sucesso" });
+  } catch (error) {
+    console.error(error);
+    return c.json({ success: false, message: "Erro ao atualizar a organização" }, 500);
+  }
+});
+
+export default organizationsRoutes;
+
+================
+File: src/routes/users.ts
+================
+import { Hono } from 'hono';
+import { getUsers } from '../queries/users';
+
+const filesRoutes = new Hono();
+
+filesRoutes.get('/api/users', async (c) => {
+  const files = await getUsers();
+  return c.json(files);
+});
+
+export default filesRoutes;
+
+================
+File: src/schemas/assistants.ts
+================
+import { pgTable, text, uuid, timestamp, boolean, integer, pgEnum } from 'drizzle-orm/pg-core';
+
+export const fileExtensionEnum = pgEnum('extension', ['pdf', 'docx', 'txt', 'jpg', 'png']);
+export const categoryEnum = pgEnum('category', ['work', 'personal', 'study']);
+export const readingStatusEnum = pgEnum('reading_status', ['unread', 'reading', 'completed']);
+
+export const assistants = pgTable('assistants', {
+    external_id: uuid('external_id').defaultRandom().notNull().unique(),
+    name: text('name').notNull(),
+    active: boolean('active').notNull(),
+    created_at: timestamp('created_at').notNull(),
+    deleted_at: timestamp('deleted_at'),
+    created_by: uuid('created_by'),
+    deleted_by: uuid('deleted_by'),
+});
+
+================
+File: src/schemas/files.ts
+================
+import { pgTable, text, uuid, timestamp, boolean, integer, pgEnum } from 'drizzle-orm/pg-core';
+
+export const fileExtensionEnum = pgEnum('extension', ['pdf', 'docx', 'txt', 'jpg', 'png']);
+export const categoryEnum = pgEnum('category', ['work', 'personal', 'study']);
+export const readingStatusEnum = pgEnum('reading_status', ['unread', 'reading', 'completed']);
+
+export const files = pgTable('files', {
+    external_id: uuid('external_id').defaultRandom().notNull().unique(),
+    name: text('name').notNull(),
+    active: boolean('active').notNull(),
+    created_at: timestamp('created_at').notNull(),
+    deleted_at: timestamp('deleted_at'),
+    created_by: uuid('created_by'),
+    deleted_by: uuid('deleted_by'),
+    folder: uuid('folder'),
+    extension: fileExtensionEnum('extension').notNull(),
+    category: categoryEnum('category').notNull(),
+    size: integer('size').notNull(),
+    reading_percentage: integer('reading_percentage').notNull(),
+    reading_status: readingStatusEnum('reading_status').notNull(),
+    link: text('link').notNull()
+});
+
+================
+File: src/schemas/organizations.ts
+================
+import { pgTable, text, uuid, timestamp, boolean, integer, pgEnum } from 'drizzle-orm/pg-core';
+
+export const fileExtensionEnum = pgEnum('extension', ['pdf', 'docx', 'txt', 'jpg', 'png']);
+export const categoryEnum = pgEnum('category', ['work', 'personal', 'study']);
+export const readingStatusEnum = pgEnum('reading_status', ['unread', 'reading', 'completed']);
+
+export const organizations = pgTable('organizations', {
+    external_id: uuid('external_id').defaultRandom().notNull().unique(),
+    name: text('name').notNull(),
+    active: boolean('active').notNull(),
+    created_at: timestamp('created_at').notNull(),
+    deleted_at: timestamp('deleted_at'),
+    created_by: uuid('created_by'),
+    deleted_by: uuid('deleted_by'),
+});
+
+================
+File: src/schemas/users.ts
+================
+import { pgTable, serial, uuid, text, timestamp } from "drizzle-orm/pg-core";
+
+// Definindo a tabela auth.users do Supabase
+export const users = pgTable("auth.users", {
+  id: uuid("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+  role: text("role").default('authenticated'), // Exemplo de role padrão
+});
+
+================
+File: src/index.ts
+================
+import { serve } from '@hono/node-server'
+import { Hono } from 'hono'
+import { getFiles } from './queries/files';
+import { getUsers } from './queries/users';
+import { cors } from 'hono/cors';
+import { getOrganizations, updateOrganization } from './queries/organizations';
+
+const app = new Hono()
+
+// Middleware CORS global
+app.use('api/*', cors({
+  origin: '*',
+  allowHeaders: ['Origin', 'Content-Type', 'Authorization'],
+  allowMethods: ['GET', 'OPTIONS', 'POST', 'PUT', 'DELETE'],
+  credentials: true,
+}));
+
+app.get('/', (c) => c.text('API rodando!'));
+
+app.get('/api/files', async (c) => {
+  const files = await getFiles(); 
+  return c.json(files);
+});
+
+app.get('/api/users', async (c) => {
+  const signin = await getUsers();
+  return c.json(signin);
+});
+
+app.get('/api/organizations', async (c) => {
+  const organizations = await getOrganizations();
+  return c.json(organizations);
+});
+
+app.patch('/api/organizations/update/:external_id', async (c) => {
+  try {
+    const externalId = c.req.param('external_id');
+    
+    const updatedFields = await c.req.json();
+
+    console.log("Requisição recebida para atualizar organização com external_id:", externalId);
+    console.log("Dados de atualização:", updatedFields);
+
+    const updatedOrg = await updateOrganization(externalId, updatedFields);
+
+    return c.json(updatedOrg);
+  } catch (error) {
+    console.error("Erro ao processar requisição para atualizar organização:", error);
+    return c.json({ success: false, message: "Erro interno ao atualizar a organização" }, 500);
+  }
+});
+
+
+serve({
+  fetch: app.fetch,
+  port: 4000,
+});
+
+================
+File: .gitignore
+================
+# prod
+dist/
+
+# dev
+.yarn/
+!.yarn/releases
+.vscode/*
+!.vscode/launch.json
+!.vscode/*.code-snippets
+.idea/workspace.xml
+.idea/usage.statistics.xml
+.idea/shelf
+
+# deps
+node_modules/
+.wrangler
+
+# env
+.env
+.env.production
+.dev.vars
+
+# logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# misc
+.DS_Store
+
+================
+File: package.json
+================
+{
+  "name": "my-app",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "deploy": "wrangler deploy --minify"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.8",
+    "@supabase/supabase-js": "^2.49.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "drizzle-orm": "^0.40.0",
+    "hono": "^4.7.2",
+    "pg": "^8.13.3",
+    "postgres": "^3.4.5",
+    "repomix": "^0.2.41"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250214.0",
+    "@types/pg": "^8.11.11",
+    "drizzle-kit": "^0.30.5",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.19.3",
+    "wrangler": "^3.109.2"
+  }
+}
+
+================
+File: README.md
+================
+```
+npm install
+npm run dev
+```
+
+```
+npm run deploy
+```
+
+================
+File: tsconfig.json
+================
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "strict": true,
+    "skipLibCheck": true,
+    "lib": [
+      "ESNext"
+    ],
+    "types": [
+      "@cloudflare/workers-types/2023-07-01"
+    ],
+    "jsx": "react-jsx",
+    "jsxImportSource": "hono/jsx",
+    "baseUrl": "./",
+    "paths": {
+      "@/*": ["src/*"]
+    }
+  }
+}
+
+================
+File: wrangler.jsonc
+================
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "my-app",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-03-02"
+  // "compatibility_flags": [
+  //   "nodejs_compat"
+  // ],
+  // "vars": {
+  //   "MY_VAR": "my-variable"
+  // },
+  // "kv_namespaces": [
+  //   {
+  //     "binding": "MY_KV_NAMESPACE",
+  //     "id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  //   }
+  // ],
+  // "r2_buckets": [
+  //   {
+  //     "binding": "MY_BUCKET",
+  //     "bucket_name": "my-bucket"
+  //   }
+  // ],
+  // "d1_databases": [
+  //   {
+  //     "binding": "MY_DB",
+  //     "database_name": "my-database",
+  //     "database_id": ""
+  //   }
+  // ],
+  // "ai": {
+  //   "binding": "AI"
+  // },
+  // "observability": {
+  //   "enabled": true,
+  //   "head_sampling_rate": 1
+  // }
+}
+
+
+
+================================================================
+End of Codebase
+================================================================
